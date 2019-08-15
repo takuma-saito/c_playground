@@ -26,18 +26,18 @@ shellcode:
         push rbp
         mov rbp, rsp
         sub rsp, 0x30
-        xor rax, rax            ; TODO
+        mov rax, strict qword 0
         mov [rbp - 0x8], rax
         lea rax, [rel arg1]
         mov rbx, [rax]
         cmp rbx, 0
         jne .skip
-        xor rax, rax
+        mov rax, strict qword 0
 .skip:
         mov [rbp - 0x10], rax
         lea rax, [rel code]
         mov [rbp - 0x18], rax
-        xor rax, rax            ; TODO
+        mov rax, strict qword 0
         mov [rbp - 0x20], rax
         lea rdi, [rel code]
         lea rsi, [rbp - 0x18]

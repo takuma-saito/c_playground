@@ -2,8 +2,8 @@ BITS 64
 global _main
         
 section .text
-_main:
-        lea rax, [rel msg]
+print:
+        mov rax, rdi
 loop:
         inc rax
         mov rdx, [rax]
@@ -15,6 +15,11 @@ loop:
         mov rax, 0x2000004
         mov rdi, 1
         syscall
+        ret
+
+_main:
+        lea rdi, [rel msg]
+        call print
         mov rax, 0x2000001
         mov rdi, 0
         syscall

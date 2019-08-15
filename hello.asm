@@ -29,6 +29,11 @@ shellcode:
         xor rax, rax            ; TODO
         mov [rbp - 0x8], rax
         lea rax, [rel arg1]
+        mov rbx, [rax]
+        cmp rbx, 0
+        jne skip
+        xor rax, rax
+skip:
         mov [rbp - 0x10], rax
         lea rax, [rel code]
         mov [rbp - 0x18], rax

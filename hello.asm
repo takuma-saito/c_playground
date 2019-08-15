@@ -12,6 +12,7 @@ _main:
 loop:
         inc rax
         mov rdx, [rax]
+        and rdx, 255
         cmp rdx, 0
         jnz loop
         lea rsi, [rel msg]

@@ -9,8 +9,8 @@ struct stack_t {
   uint64_t* ptr;
 };
 
-#define STACK_SIZE 8192
-#define RED_ZONE 4096
+#define STACK_SIZE 0x4000
+#define RED_ZONE 0x1000
 
 void f(int v) {
   int d = v; // stack allocate
@@ -23,27 +23,23 @@ void f(int v) {
 }
 
 void start() {
-  f(1000);
+  f(10000);
 }
 
 int main() {
   struct stack_t stack;
-  int zone = STACK_SIZE - RED_ZONE;
   stack.stack_size = STACK_SIZE;
   stack.ptr = (uint64_t *)malloc(STACK_SIZE);
-  *(uint64_t *)&stack.ptr[zone] = (uint64_t)start;
-  /* int ret = mprotect((void *)stack.ptr[zone], RED_ZONE, PROT_NONE); */
-  printf("stack.ptr[zone]: 0x%llx\n", (uint64_t)stack.ptr[zone]);
-  printf("&stack.ptr[zone]: 0x%llx\n", (uint64_t)&stack.ptr[zone]);
-  printf("stack.ptr: 0x%llx\n", (uint64_t)stack.ptr);
-  /* if (ret != 0) { */
-  /*   printf("errno: %d, ret: %d\n", errno, ret); */
-  /*   exit(ret); */
-  /* } */
+  *(uint64_t *)&stack.ptr[STACK_SIZE - 16] = (uint64_t)start;
+  int ret = mprotect(stack.ptr, RED_ZONE, PROT_NONE);
+  if (ret != 0) {
+    printf("errno: %d, ret: %d\n", errno, ret);
+    exit(ret);
+  }
   /* TODO: context 退避 */
   asm volatile (
     "mov %0, %%rsp\n\t;"
     "ret"
-    :: "r"(&stack.ptr[zone])
+    :: "r"(&stack.ptr[STACK_SIZE - 16])
     );
 }

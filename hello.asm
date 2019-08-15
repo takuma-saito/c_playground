@@ -2,7 +2,12 @@ BITS 64
 global _main
         
 section .text
-print:
+; print:
+;         nop
+
+_main:
+        lea rdi, [rel msg]
+        ; call print
         mov rax, rdi
 loop:
         inc rax
@@ -11,15 +16,10 @@ loop:
         jnz loop
         lea rsi, [rel msg]
         sub rax, rsi
-        mov rdx, rax  ; length of "Hello, world\n"
+        mov rdx, rax ; length of "Hello, world\n"
         mov rax, 0x2000004
         mov rdi, 1
         syscall
-        ret
-
-_main:
-        lea rdi, [rel msg]
-        call print
         mov rax, 0x2000001
         mov rdi, 0
         syscall

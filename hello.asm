@@ -2,12 +2,12 @@ BITS 64
 global _main
         
 section .text
-; print:
-;         nop
-
 _main:
         lea rdi, [rel msg]
-        ; call print
+        call print
+
+;; 関数コールは下に配置する
+print:
         mov rax, rdi
 loop:
         inc rax

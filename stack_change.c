@@ -49,6 +49,7 @@ static inline uint64_t* get_rbp() {
   return rbp;
 }
 
+/* TODO: Stack references also must be moved! */
 void adjust_stacksize() {
   uint64_t* rsp = get_rsp();
   int size = stack.size;
@@ -62,8 +63,6 @@ void adjust_stacksize() {
     printf("alloca: %llx, curr: %llx\n", (uint64_t)new_stack.ptr, (uint64_t)stack.ptr);
     unprotect_mem_region(stack.ptr);
     memcpy(new_stack.ptr + size, stack.ptr, sizeof(uint64_t) * size);
-    /* TODO */
-    /* protect_mem_region(new_stack.ptr); */
     pre_stack = stack;
     stack = new_stack;
     asm volatile (
@@ -71,6 +70,7 @@ void adjust_stacksize() {
       :: "r"(new_stack.initial_rsp)
       );
     free(stack.ptr);
+    protect_mem_region(new_stack.ptr);
   }
 }
 
@@ -80,7 +80,7 @@ void f(int v) {
   if (d < 0)
     return;
   if (d % 100 == 0) {
-    printf("num: %d\n", d);
+    printf("num: %d, stack_size: %d\n", d, stack.size);
   }
   f(v - 1);
   return;

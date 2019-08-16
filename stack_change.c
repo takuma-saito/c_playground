@@ -31,7 +31,8 @@ void unprotect_mem_region(uint64_t* ptr) {
   }
 }
 
-static inline uint64_t* get_rsp() {
+/* force inline */
+static inline __attribute__((always_inline)) uint64_t* get_rsp() {
   uint64_t* rsp;
   asm volatile (
     "mov %%rsp, %0;"
@@ -40,16 +41,7 @@ static inline uint64_t* get_rsp() {
   return rsp;
 }
 
-static inline uint64_t* get_rbp() {
-  uint64_t* rbp;
-  asm volatile (
-    "mov %%rbp, %0;"
-    : "=r"(rbp)
-    );
-  return rbp;
-}
-
-/* TODO: Stack references also must be moved! */
+/* TODO: Stack references must be moved! */
 void adjust_stacksize() {
   uint64_t* rsp = get_rsp();
   int size = stack.size;
@@ -59,7 +51,7 @@ void adjust_stacksize() {
   if (rest < (YELLOW_ZONE + RED_ZONE)) {
     new_stack.ptr = malloc(sizeof(uint64_t) * new_size);
     new_stack.size = new_size;
-    new_stack.initial_rsp = new_stack.ptr + new_stack.size - (stack.size  - rest) + 2;  /* 謎のポインタ 2 個分 */
+    new_stack.initial_rsp = new_stack.ptr + new_stack.size - (stack.ptr + stack.size - rsp);
     printf("alloca: %llx, curr: %llx\n", (uint64_t)new_stack.ptr, (uint64_t)stack.ptr);
     unprotect_mem_region(stack.ptr);
     memcpy(new_stack.ptr + size, stack.ptr, sizeof(uint64_t) * size);
@@ -92,7 +84,7 @@ void start() {
 }
 
 void finish() {
-  asm volatile ("add $8, %rsp;"); /* align 16 bytes */
+  asm volatile ("add $8, %rsp;"); /* force align 16 bytes */
   exit(0);
 }
 

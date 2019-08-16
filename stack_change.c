@@ -40,6 +40,15 @@ static inline uint64_t* get_rsp() {
   return rsp;
 }
 
+static inline uint64_t* get_rbp() {
+  uint64_t* rbp;
+  asm volatile (
+    "mov %%rbp, %0;"
+    : "=r"(rbp)
+    );
+  return rbp;
+}
+
 void adjust_stacksize() {
   int size = stack.size;
   int new_size = size * 2;
@@ -54,13 +63,13 @@ void adjust_stacksize() {
     unprotect_mem_region(stack.ptr);
     memcpy(new_stack.ptr + size, stack.ptr, sizeof(uint64_t) * size);
     /* protect_mem_region(new_stack.ptr); */
-    /* free(stack.ptr); */
     pre_stack = stack;
     stack = new_stack;
     asm volatile (
       "mov %0, %%rsp;"
-      :: "r"(new_stack.initial_rsp)
+      :: "r"(new_stack.initial_rsp+2) /* 謎のポインタ 2 個分 */
       );
+    free(stack.ptr);
   }
 }
 
@@ -78,7 +87,7 @@ void f(int v) {
 
 void start() {
   printf("size: %ld\n", (get_rsp() - stack.ptr));
-  f(10000);
+  f(100000);
 }
 
 int main() {

@@ -1,45 +1,96 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <errno.h>
 
 struct stack_t {
-  int stack_size;
+  int size;
   uint64_t* ptr;
+  uint64_t* initial_rsp;
 };
+struct stack_t stack;
 
-#define STACK_SIZE 0x4000
+#define STACK_SIZE 0x2000
 #define RED_ZONE 0x1000
+#define YELLOW_ZONE 0x0800
+
+void protect_mem_region(uint64_t* ptr) {
+  int ret = mprotect(ptr, RED_ZONE, PROT_NONE);
+  if (ret != 0) {
+    printf("errno: %d, ret: %d\n", errno, ret);
+    exit(ret);
+  }
+}
+void unprotect_mem_region(uint64_t* ptr) {
+  int ret = mprotect(ptr, RED_ZONE, PROT_READ | PROT_WRITE);
+  if (ret != 0) {
+    printf("errno: %d, ret: %d\n", errno, ret);
+    exit(ret);
+  }
+}
+
+static inline uint64_t* get_rsp() {
+  uint64_t* rsp;
+  asm volatile (
+    "mov %%rsp, %0;"
+    : "=r"(rsp)
+    );
+  return rsp;
+}
+
+void adjust_stacksize() {
+  int size = stack.size;
+  int new_size = size * 2;
+  uint64_t* rsp = get_rsp();
+  struct stack_t new_stack, pre_stack;
+  uint64_t rest = (rsp - stack.ptr);
+  if (rest < (YELLOW_ZONE + RED_ZONE)) {
+    new_stack.ptr = malloc(sizeof(uint64_t) * new_size);
+    new_stack.size = new_size;
+    new_stack.initial_rsp = new_stack.ptr + new_stack.size - (stack.size  - rest);
+    printf("alloca: %llx, curr: %llx\n", (uint64_t)new_stack.ptr, (uint64_t)stack.ptr);
+    unprotect_mem_region(stack.ptr);
+    memcpy(new_stack.ptr + size, stack.ptr, sizeof(uint64_t) * size);
+    /* protect_mem_region(new_stack.ptr); */
+    /* free(stack.ptr); */
+    pre_stack = stack;
+    stack = new_stack;
+    asm volatile (
+      "mov %0, %%rsp;"
+      :: "r"(new_stack.initial_rsp)
+      );
+  }
+}
 
 void f(int v) {
+  adjust_stacksize();
   int d = v; // stack allocate
   if (d < 0)
     return;
-  if (d % 100 == 0)
-    printf("%d\n", d);
+  if (d % 100 == 0) {
+    printf("num: %d\n", d);
+  }
   f(v - 1);
   return;
 }
 
 void start() {
+  printf("size: %ld\n", (get_rsp() - stack.ptr));
   f(10000);
 }
 
 int main() {
-  struct stack_t stack;
-  stack.stack_size = STACK_SIZE;
-  stack.ptr = (uint64_t *)malloc(STACK_SIZE);
-  *(uint64_t *)&stack.ptr[STACK_SIZE - 16] = (uint64_t)start;
-  int ret = mprotect(stack.ptr, RED_ZONE, PROT_NONE);
-  if (ret != 0) {
-    printf("errno: %d, ret: %d\n", errno, ret);
-    exit(ret);
-  }
+  stack.size = STACK_SIZE;
+  stack.ptr = (uint64_t *)malloc(sizeof(uint64_t) * STACK_SIZE);
+  *(uint64_t *)&stack.ptr[STACK_SIZE-2] = (uint64_t)start; /* stack_not_16_byte_aligned_error */
+  protect_mem_region(stack.ptr);
+  stack.initial_rsp = (uint64_t *)&stack.ptr[STACK_SIZE-2];
   /* TODO: context 退避 */
   asm volatile (
-    "mov %0, %%rsp\n\t;"
+    "mov %0, %%rsp;"
     "ret"
-    :: "r"(&stack.ptr[STACK_SIZE - 16])
+    :: "r"(stack.initial_rsp)
     );
 }

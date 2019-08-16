@@ -50,24 +50,25 @@ static inline uint64_t* get_rbp() {
 }
 
 void adjust_stacksize() {
+  uint64_t* rsp = get_rsp();
   int size = stack.size;
   int new_size = size * 2;
-  uint64_t* rsp = get_rsp();
   struct stack_t new_stack, pre_stack;
   uint64_t rest = (rsp - stack.ptr);
   if (rest < (YELLOW_ZONE + RED_ZONE)) {
     new_stack.ptr = malloc(sizeof(uint64_t) * new_size);
     new_stack.size = new_size;
-    new_stack.initial_rsp = new_stack.ptr + new_stack.size - (stack.size  - rest);
+    new_stack.initial_rsp = new_stack.ptr + new_stack.size - (stack.size  - rest) + 2;  /* 謎のポインタ 2 個分 */
     printf("alloca: %llx, curr: %llx\n", (uint64_t)new_stack.ptr, (uint64_t)stack.ptr);
     unprotect_mem_region(stack.ptr);
     memcpy(new_stack.ptr + size, stack.ptr, sizeof(uint64_t) * size);
+    /* TODO */
     /* protect_mem_region(new_stack.ptr); */
     pre_stack = stack;
     stack = new_stack;
     asm volatile (
       "mov %0, %%rsp;"
-      :: "r"(new_stack.initial_rsp+2) /* 謎のポインタ 2 個分 */
+      :: "r"(new_stack.initial_rsp)
       );
     free(stack.ptr);
   }
@@ -87,13 +88,19 @@ void f(int v) {
 
 void start() {
   printf("size: %ld\n", (get_rsp() - stack.ptr));
-  f(100000);
+  f(10000);
+}
+
+void finish() {
+  asm volatile ("add $8, %rsp;"); /* align 16 bytes */
+  exit(0);
 }
 
 int main() {
   stack.size = STACK_SIZE;
   stack.ptr = (uint64_t *)malloc(sizeof(uint64_t) * STACK_SIZE);
-  *(uint64_t *)&stack.ptr[STACK_SIZE-2] = (uint64_t)start; /* stack_not_16_byte_aligned_error */
+  *(uint64_t *)&stack.ptr[STACK_SIZE-2] = (uint64_t)start;
+  *(uint64_t *)&stack.ptr[STACK_SIZE-1] = (uint64_t)finish;
   protect_mem_region(stack.ptr);
   stack.initial_rsp = (uint64_t *)&stack.ptr[STACK_SIZE-2];
   /* TODO: context 退避 */

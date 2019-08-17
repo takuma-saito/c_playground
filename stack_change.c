@@ -4,13 +4,27 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <stdbool.h>
+
+/* TODO: fix ==> errno: 22, ret: -1 */
 
 struct stack_t {
   int size;
   uint64_t* ptr;
   uint64_t* initial_rsp;
 };
+struct register_state_t {
+  bool done;
+  uint64_t rbx;
+  uint64_t rbp;
+  uint64_t rsp;
+  uint64_t r12;
+  uint64_t r13;
+  uint64_t r14;
+  uint64_t r15;
+};
 struct stack_t stack;
+struct register_state_t register_state;
 
 #define STACK_SIZE 0x2000
 #define RED_ZONE 0x1000
@@ -40,6 +54,49 @@ static inline __attribute__((always_inline)) uint64_t* get_rsp() {
   return rsp;
 }
 
+static inline __attribute__((always_inline)) void restore_context() {
+  register_state.done = true;
+  asm volatile (
+    "mov %[rbx], %%rbx;"
+    "mov %[rbp], %%rbp;"
+    "mov %[rsp], %%rsp;"
+    "mov %[r12], %%r12;"
+    "mov %[r13], %%r13;"
+    "mov %[r14], %%r14;"
+    "mov %[r15], %%r15;"
+    "push %%rsp;"
+    "ret;"
+    ::
+     [rbx]"r"(register_state.rbx),
+     [rbp]"r"(register_state.rbp),
+     [rsp]"r"(register_state.rsp),
+     [r12]"r"(register_state.r12),
+     [r13]"r"(register_state.r13),
+     [r14]"r"(register_state.r14),
+     [r15]"r"(register_state.r15)
+    );
+}
+static inline __attribute__((always_inline)) void evacuate_context() {
+  register_state.done = false;
+  asm volatile (
+    "mov %%rbx, %[rbx];"
+    "mov %%rbp, %[rbp];"
+    "mov %%rsp, %[rsp];"
+    "mov %%r12, %[r12];"
+    "mov %%r13, %[r13];"
+    "mov %%r14, %[r14];"
+    "mov %%r15, %[r15];"
+    :
+     [rbx]"=r"(register_state.rbx),
+     [rbp]"=r"(register_state.rbp),
+     [rsp]"=r"(register_state.rsp),
+     [r12]"=r"(register_state.r12),
+     [r13]"=r"(register_state.r13),
+     [r14]"=r"(register_state.r14),
+     [r15]"=r"(register_state.r15)
+    );
+}
+
 /* TODO: Stack references must be moved! */
 void adjust_stacksize() {
   uint64_t* rsp = get_rsp();
@@ -60,8 +117,8 @@ void adjust_stacksize() {
         p >= new_stack.ptr + stack.size;
         p--) {
       if (*p >= (uint64_t)stack.ptr && *p < (uint64_t)(stack.ptr + stack.size)) {
-        uint64_t offset = (uint64_t)(stack.ptr + stack.size) - *p;
-        uint64_t new_addr = new_stack.ptr + new_stack.size - (offset/8);
+        uint64_t offset = ((uint64_t)(stack.ptr + stack.size) - *p) / 8;
+        uint64_t new_addr = new_stack.ptr + new_stack.size - offset;
         /* printf("offset: %llu, %llx => %llx\n", offset, *p, new_addr); */
         *p = new_addr;
       }
@@ -77,7 +134,7 @@ void adjust_stacksize() {
   }
 }
 
-get_stack_size() {
+void get_stack_size() {
   printf("REST OF STACK SIZE: %ld\n", (get_rsp() - stack.ptr));
 }
 
@@ -87,12 +144,12 @@ void f(int v) {
   int* a = &d;
   if (d < 0)
     return;
-  if (d % 100 == 0) {
+  if (d % 10000 == 0) {
     get_stack_size();
     printf("[start] num: %d, stack_size: %d, addr: %llx\n", d, stack.size, (uint64_t)a);
   }
   f(v - 1);
-  if (d % 100 == 0) {
+  if (d % 10000 == 0) {
     get_stack_size();
     uint64_t* rsp = get_rsp();
     printf("[end] num: %d, addr: %llx, rsp: %llx\n", *a, (uint64_t)a, (uint64_t)rsp);
@@ -101,25 +158,33 @@ void f(int v) {
 }
 
 void start() {
-  f(10000);
+  f(100000);
 }
 
 void finish() {
-  asm volatile ("add $8, %rsp;"); /* force align 16 bytes */
-  exit(0);
+  restore_context();
 }
 
-int main() {
+void run() {
+  evacuate_context();
+  if (register_state.done)
+    return;
   stack.size = STACK_SIZE;
   stack.ptr = (uint64_t *)malloc(sizeof(uint64_t) * STACK_SIZE);
   *(uint64_t *)&stack.ptr[STACK_SIZE-2] = (uint64_t)start;
   *(uint64_t *)&stack.ptr[STACK_SIZE-1] = (uint64_t)finish;
   protect_mem_region(stack.ptr);
   stack.initial_rsp = (uint64_t *)&stack.ptr[STACK_SIZE-2];
-  /* TODO: context 退避 */
+  /* change stack pointer */
   asm volatile (
     "mov %0, %%rsp;"
     "ret"
     :: "r"(stack.initial_rsp)
     );
+}
+
+int main() {
+  run();
+  printf("finish!\n");
+  exit(0);
 }

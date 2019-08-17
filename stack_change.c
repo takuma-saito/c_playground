@@ -171,8 +171,8 @@ void run() {
     return;
   stack.size = STACK_SIZE;
   stack.ptr = (uint64_t *)malloc(sizeof(uint64_t) * STACK_SIZE);
-  *(uint64_t *)&stack.ptr[STACK_SIZE-2] = (uint64_t)start;
-  *(uint64_t *)&stack.ptr[STACK_SIZE-1] = (uint64_t)finish;
+  stack.ptr[STACK_SIZE-2] = (uint64_t)start;
+  stack.ptr[STACK_SIZE-1] = (uint64_t)finish;
   protect_mem_region(stack.ptr);
   stack.initial_rsp = (uint64_t *)&stack.ptr[STACK_SIZE-2];
   /* change stack pointer */

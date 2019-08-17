@@ -31,7 +31,6 @@ void unprotect_mem_region(uint64_t* ptr) {
   }
 }
 
-/* force inline */
 static inline __attribute__((always_inline)) uint64_t* get_rsp() {
   uint64_t* rsp;
   asm volatile (
@@ -78,6 +77,10 @@ void adjust_stacksize() {
   }
 }
 
+get_stack_size() {
+  printf("REST OF STACK SIZE: %ld\n", (get_rsp() - stack.ptr));
+}
+
 void f(int v) {
   adjust_stacksize();
   int d = v; // stack allocate
@@ -85,19 +88,19 @@ void f(int v) {
   if (d < 0)
     return;
   if (d % 100 == 0) {
+    get_stack_size();
     printf("[start] num: %d, stack_size: %d, addr: %llx\n", d, stack.size, (uint64_t)a);
   }
   f(v - 1);
   if (d % 100 == 0) {
+    get_stack_size();
     uint64_t* rsp = get_rsp();
-    printf("[end] addr: %llx, rsp: %llx\n", (uint64_t)a, (uint64_t)rsp);
     printf("[end] num: %d, addr: %llx, rsp: %llx\n", *a, (uint64_t)a, (uint64_t)rsp);
   }
   return;
 }
 
 void start() {
-  printf("size: %ld\n", (get_rsp() - stack.ptr));
   f(10000);
 }
 

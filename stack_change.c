@@ -52,9 +52,21 @@ void adjust_stacksize() {
     new_stack.ptr = malloc(sizeof(uint64_t) * new_size);
     new_stack.size = new_size;
     new_stack.initial_rsp = new_stack.ptr + new_stack.size - (stack.ptr + stack.size - rsp);
-    printf("alloca: %llx, curr: %llx\n", (uint64_t)new_stack.ptr, (uint64_t)stack.ptr);
+    printf("alloca: %llx, curr: %llx, rsp: %llx\n",
+           (uint64_t)new_stack.ptr, (uint64_t)stack.ptr, (uint64_t)rsp);
     unprotect_mem_region(stack.ptr);
-    memcpy(new_stack.ptr + size, stack.ptr, sizeof(uint64_t) * size);
+    memcpy(new_stack.ptr + stack.size, stack.ptr, sizeof(uint64_t) * size);
+    /* update reference */
+    for(uint64_t* p = new_stack.ptr + new_stack.size - 1;
+        p >= new_stack.ptr + stack.size;
+        p--) {
+      if (*p >= (uint64_t)stack.ptr && *p < (uint64_t)(stack.ptr + stack.size)) {
+        uint64_t offset = (uint64_t)(stack.ptr + stack.size) - *p;
+        uint64_t new_addr = new_stack.ptr + new_stack.size - (offset/8);
+        /* printf("offset: %llu, %llx => %llx\n", offset, *p, new_addr); */
+        *p = new_addr;
+      }
+    }
     pre_stack = stack;
     stack = new_stack;
     asm volatile (
@@ -69,12 +81,18 @@ void adjust_stacksize() {
 void f(int v) {
   adjust_stacksize();
   int d = v; // stack allocate
+  int* a = &d;
   if (d < 0)
     return;
   if (d % 100 == 0) {
-    printf("num: %d, stack_size: %d\n", d, stack.size);
+    printf("[start] num: %d, stack_size: %d, addr: %llx\n", d, stack.size, (uint64_t)a);
   }
   f(v - 1);
+  if (d % 100 == 0) {
+    uint64_t* rsp = get_rsp();
+    printf("[end] addr: %llx, rsp: %llx\n", (uint64_t)a, (uint64_t)rsp);
+    printf("[end] num: %d, addr: %llx, rsp: %llx\n", *a, (uint64_t)a, (uint64_t)rsp);
+  }
   return;
 }
 

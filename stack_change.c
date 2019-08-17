@@ -64,7 +64,7 @@ static inline __attribute__((always_inline)) void restore_context() {
     "mov %[r13], %%r13;"
     "mov %[r14], %%r14;"
     "mov %[r15], %%r15;"
-    "push %%rsp;"
+    "pop %%rbp;"
     "ret;"
     ::
      [rbx]"r"(register_state.rbx),

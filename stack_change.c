@@ -161,7 +161,7 @@ void start() {
   f(100000);
 }
 
-void finish() {
+__attribute__((noreturn)) void finish() {
   restore_context();
 }
 

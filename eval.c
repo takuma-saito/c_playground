@@ -14,7 +14,7 @@ int main() {
   void (*func)();
   memcpy(addr, PAYLOAD, sizeof(PAYLOAD));
   int ret = mprotect(addr, SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
-  printf("addr: 0x%llx\n", (unsigned long long)addr);
+  printf("addr: 0x%p\n", addr);
   if (ret != 0) {
     printf("errno: %d, ret: %d\n", errno, ret);
     exit(ret);

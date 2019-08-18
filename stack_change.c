@@ -108,8 +108,7 @@ void adjust_stacksize() {
     new_stack.ptr = malloc(sizeof(uint64_t) * new_size);
     new_stack.size = new_size;
     new_stack.initial_rsp = new_stack.ptr + new_stack.size - (stack.ptr + stack.size - rsp);
-    printf("alloca: %llx, curr: %llx, rsp: %llx\n",
-           (uint64_t)new_stack.ptr, (uint64_t)stack.ptr, (uint64_t)rsp);
+    printf("alloca: %p, curr: %p, rsp: %p\n", new_stack.ptr, stack.ptr, rsp);
     unprotect_mem_region(stack.ptr);
     memcpy(new_stack.ptr + stack.size, stack.ptr, sizeof(uint64_t) * size);
     /* update reference */
@@ -119,7 +118,7 @@ void adjust_stacksize() {
       if (*p >= (uint64_t)stack.ptr && *p < (uint64_t)(stack.ptr + stack.size)) {
         uint64_t offset = ((uint64_t)(stack.ptr + stack.size) - *p) / 8;
         uint64_t new_addr = new_stack.ptr + new_stack.size - offset;
-        /* printf("offset: %llu, %llx => %llx\n", offset, *p, new_addr); */
+        /* printf("offset: %llu, %p => %p\n", offset, *p, new_addr); */
         *p = new_addr;
       }
     }
@@ -146,13 +145,13 @@ void f(int v) {
     return;
   if (d % 10000 == 0) {
     get_stack_size();
-    printf("[start] num: %d, stack_size: %d, addr: %llx\n", d, stack.size, (uint64_t)a);
+    printf("[start] num: %d, stack_size: %d, addr: %p\n", d, stack.size, a);
   }
   f(v - 1);
   if (d % 10000 == 0) {
     get_stack_size();
     uint64_t* rsp = get_rsp();
-    printf("[end] num: %d, addr: %llx, rsp: %llx\n", *a, (uint64_t)a, (uint64_t)rsp);
+    printf("[end] num: %d, addr: %p, rsp: %p\n", *a, a, rsp);
   }
   return;
 }

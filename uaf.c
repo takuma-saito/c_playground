@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <assert.h>
 
 #define SIZE 4096
 
@@ -10,7 +11,6 @@ char SHELLCODE[] = "\x48\x8d\x3d\x41\x00\x00\x00\xe8\x00\x00\x00\x00\x48\x89\xf8
 
 struct invoke_t {
   void (*fn)();
-  char c[128];
 };
 
 void ok() {
@@ -27,8 +27,9 @@ int main() {
   void** d = (void **)malloc(size);
   void* payload = (void *)malloc(SIZE);
   printf("%p\n", d);
-  memcpy(payload, SHELLCODE, size);
+  memcpy(payload, SHELLCODE, SIZE);
   int ret = mprotect(payload, SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
+  assert((uint64_t)m == (uint64_t)d); /* m and d points to same address */
   if (ret != 0) {
     printf("addr: %p, ret: %d, errono: %d\n", payload, ret, errno);
     exit(2);
